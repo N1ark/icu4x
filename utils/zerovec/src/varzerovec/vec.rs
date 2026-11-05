@@ -512,10 +512,25 @@ fn assert_single_empty_representation() {
 
 #[test]
 fn weird_empty_representation_equality() {
+    use super::components::Index32;
     assert_eq!(
-        VarZeroVec::<str>::parse_bytes(&[0, 0, 0, 0]).unwrap(),
+        VarZeroVec::<str>::parse_bytes(&[0, 0]).unwrap(),
         VarZeroVec::<str>::parse_bytes(&[]).unwrap()
     );
+    assert_eq!(
+        VarZeroVec::<str, Index32>::parse_bytes(&[0, 0, 0, 0]).unwrap(),
+        VarZeroVec::<str, Index32>::parse_bytes(&[]).unwrap()
+    );
+}
+
+#[test]
+fn zero_length_with_trailing_bytes() {
+    use super::components::{Index32, Index8};
+    assert!(VarZeroVec::<str>::parse_bytes(&[0, 0, 0xff, 0xff]).is_err());
+    assert!(VarZeroSlice::<str>::parse_bytes(&[0, 0, 0xff, 0xff]).is_err());
+    assert!(VarZeroVec::<str>::parse_bytes(&[0, 0, 0, 0]).is_err());
+    assert!(VarZeroVec::<[u8], Index8>::parse_bytes(&[0, 0]).is_err());
+    assert!(VarZeroVec::<str, Index32>::parse_bytes(&[0, 0, 0, 0, b'x']).is_err());
 }
 
 #[test]

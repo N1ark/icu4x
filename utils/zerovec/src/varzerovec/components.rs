@@ -270,6 +270,11 @@ impl<'a, T: VarULE + ?Sized, F: VarZeroVecFormat> VarZeroVecComponents<'a, T, F>
         let len_minus_one = len.checked_sub(1);
         // The empty VZV is special-cased to the empty slice
         let Some(len_minus_one) = len_minus_one else {
+            // There must not be any data after a zero length, so that the
+            // whole slice is used (item 4 of the VarULE safety checklist)
+            if !slice.is_empty() {
+                return Err(VarZeroVecFormatError::Metadata);
+            }
             return Ok(VarZeroVecComponents {
                 len: 0,
                 indices: &[],
