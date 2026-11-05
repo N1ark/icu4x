@@ -70,7 +70,11 @@ where
         // &[u8] and &[T::ULE] are the same slice with different length metadata.
         Self::from_ule_slice(core::slice::from_raw_parts(
             bytes.as_ptr() as *const T::ULE,
-            bytes.len() / size_of::<T::ULE>(),
+            if size_of::<T::ULE>() == 0 {
+                0
+            } else {
+                bytes.len() / size_of::<T::ULE>()
+            },
         ))
     }
 

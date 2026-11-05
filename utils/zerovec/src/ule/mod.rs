@@ -103,7 +103,11 @@ where
     /// means that the returned slice can span the entire byte slice.
     fn parse_bytes_to_slice(bytes: &[u8]) -> Result<&[Self], UleError> {
         Self::validate_bytes(bytes)?;
-        debug_assert_eq!(bytes.len() % size_of::<Self>(), 0);
+        debug_assert!(if size_of::<Self>() == 0 {
+            bytes.is_empty()
+        } else {
+            bytes.len() % size_of::<Self>() == 0
+        });
         Ok(unsafe { Self::slice_from_bytes_unchecked(bytes) })
     }
 
@@ -134,8 +138,13 @@ where
     #[inline]
     unsafe fn slice_from_bytes_unchecked(bytes: &[u8]) -> &[Self] {
         let data = bytes.as_ptr();
-        let len = bytes.len() / size_of::<Self>();
-        debug_assert_eq!(bytes.len() % size_of::<Self>(), 0);
+        // A zero-sized type can only be validated from an empty byte slice
+        let len = if size_of::<Self>() == 0 {
+            0
+        } else {
+            bytes.len() / size_of::<Self>()
+        };
+        debug_assert_eq!(len * size_of::<Self>(), bytes.len());
         slice::from_raw_parts(data as *const Self, len)
     }
 

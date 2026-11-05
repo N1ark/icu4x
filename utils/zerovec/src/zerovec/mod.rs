@@ -442,7 +442,11 @@ impl<'a, T: AsULE> ZeroVec<'a, T> {
         // &[u8] and &[T::ULE] are the same slice with different length metadata.
         Self::new_borrowed(core::slice::from_raw_parts(
             bytes.as_ptr() as *const T::ULE,
-            bytes.len() / size_of::<T::ULE>(),
+            if size_of::<T::ULE>() == 0 {
+                0
+            } else {
+                bytes.len() / size_of::<T::ULE>()
+            },
         ))
     }
 
@@ -1335,5 +1339,24 @@ mod tests {
                 .unwrap()
                 .get(19)
         );
+    }
+
+    #[test]
+    fn test_zst() {
+        use crate::VarZeroVec;
+        // The byte representation of a slice of `()` is always empty
+        assert_eq!(ZeroVec::<()>::parse_bytes(&[]).unwrap().len(), 0);
+        assert_eq!(ZeroSlice::<()>::parse_bytes(&[]).unwrap().len(), 0);
+        assert!(ZeroVec::<()>::parse_bytes(&[0]).is_err());
+        assert_eq!(unsafe { ZeroVec::<()>::from_bytes_unchecked(&[]) }.len(), 0);
+        assert_eq!(
+            unsafe { ZeroSlice::<()>::from_bytes_unchecked(&[]) }.len(),
+            0
+        );
+
+        let vzv = VarZeroVec::<ZeroSlice<()>>::from(&[ZeroVec::<()>::new()]);
+        assert_eq!(vzv.get(0).map(ZeroSlice::len), Some(0));
+        let parsed = VarZeroVec::<ZeroSlice<()>>::parse_bytes(vzv.as_bytes()).unwrap();
+        assert_eq!(parsed, vzv);
     }
 }
