@@ -470,7 +470,10 @@ macro_rules! check_is {
             Aligned8::from_ascii_bytes(&$self.bytes).$check_int()
         } else {
             // Won't panic because N is > 8
-            if !($self.bytes[0] as u8).$check_u8_0_inv() {
+            // The empty string passes, as in the N <= 8 case
+            if $self.bytes[0] as u8 != AsciiByte::B0 as u8
+                && !($self.bytes[0] as u8).$check_u8_0_inv()
+            {
                 return false;
             }
             let mut i = 1;
@@ -904,7 +907,8 @@ mod test {
     use rand::rngs::SmallRng;
     use rand::SeedableRng;
 
-    const STRINGS: [&str; 26] = [
+    const STRINGS: [&str; 27] = [
+        "",
         "Latn",
         "laTn",
         "windows",
@@ -1197,8 +1201,10 @@ mod test {
                         .chars()
                         .map(|c| c.to_ascii_lowercase())
                         .collect::<String>();
-                    // Safe because the string is nonempty and an ASCII string
-                    unsafe { r.as_bytes_mut()[0].make_ascii_uppercase() };
+                    // Safe because the string is an ASCII string
+                    if let Some(first) = unsafe { r.as_bytes_mut() }.first_mut() {
+                        first.make_ascii_uppercase();
+                    }
                     r
                 },
                 |t: TinyAsciiStr<N>| TinyAsciiStr::to_ascii_titlecase(t).as_str().to_owned(),
