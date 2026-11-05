@@ -66,10 +66,15 @@ pub fn compute_index(f: (u32, u32), d: (u32, u32), m: u32) -> Option<usize> {
 /// # Panics
 ///
 /// Panics if the `key_hashes` iterator claims to have more elements than can fit in a u32.
+///
+/// Panics if no displacement splits the keys of a bucket into distinct free slots. This
+/// always happens for duplicate hashes (such as duplicate keys), and can happen for distinct
+/// hashes that are equal in the bits used by this scheme.
 #[expect(
     clippy::indexing_slicing,
     clippy::unwrap_used,
     clippy::expect_used,
+    clippy::panic,
     reason = "Documented panic"
 )]
 pub fn compute_displacements(
@@ -132,8 +137,10 @@ pub fn compute_displacements(
         // start, end - 1 are always within bounds of `bucket_sizes`
         let buckets = &bucket_flatten[start..end];
 
+        // With a single key, (0, 0) would be the only candidate, but it marks an empty
+        // bucket, so also try d1 = 1 (which maps to the only slot, 0).
         'd0: for d0 in 0..len_u32 {
-            'd1: for d1 in 0..len_u32 {
+            'd1: for d1 in 0..len_u32.max(2) {
                 if (d0, d1) == (0, 0) {
                     continue;
                 }
@@ -165,6 +172,12 @@ pub fn compute_displacements(
                 }
                 break 'd0;
             }
+        }
+
+        // (0, 0) is never a valid displacement, so the bucket was not placed. Its keys would be
+        // missing from the map, and `reverse_mapping` would not be a permutation.
+        if displacements[g] == (0, 0) {
+            panic!("ZeroHashMap: could not find a perfect hash for the keys");
         }
 
         start = end;

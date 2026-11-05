@@ -68,6 +68,9 @@ where
     where
         A: Borrow<K> + ?Sized,
     {
+        if self.is_empty() {
+            return None;
+        }
         let hash = compute_hash(key.borrow());
         let (g, f0, f1) = split_hash64(hash, self.len());
 
@@ -185,6 +188,11 @@ where
     /// assert_eq!(hashmap.get(&3), Some("c"));
     /// assert_eq!(hashmap.get(&4), Some("d"));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the keys contain duplicates, or if no perfect hash can be found for them
+    /// (see [`compute_displacements`]).
     fn from_iter<T: IntoIterator<Item = (A, B)>>(iter: T) -> Self {
         let iter = iter.into_iter();
         let size_hint = match iter.size_hint() {
@@ -255,5 +263,33 @@ mod tests {
             }
         }
         let _ = compute_displacements(HugeIter);
+    }
+
+    #[test]
+    fn test_empty() {
+        let hashmap = ZeroHashMap::<u32, u32>::from_iter(core::iter::empty::<(u32, u32)>());
+        assert_eq!(hashmap.get(&1), None);
+        assert!(!hashmap.contains_key(&1));
+    }
+
+    #[test]
+    fn test_single_entry() {
+        let hashmap = ZeroHashMap::<u32, str>::from_iter([(1, "a")]);
+        assert_eq!(hashmap.get(&1), Some("a"));
+        assert_eq!(hashmap.get(&2), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "could not find a perfect hash")]
+    fn test_unplaceable_keys() {
+        // Both keys have the same first-level hash and the same (f0, f1) modulo 2, so no
+        // displacement separates them.
+        let _ = compute_displacements([0u32, 6].iter().map(compute_hash));
+    }
+
+    #[test]
+    #[should_panic(expected = "could not find a perfect hash")]
+    fn test_duplicate_keys() {
+        let _ = ZeroHashMap::<str, str>::from_iter([("a", "1"), ("a", "2")]);
     }
 }
